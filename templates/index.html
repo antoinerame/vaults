@@ -270,7 +270,7 @@
 
     .vault-info-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
       gap: 12px;
     }
 
@@ -299,7 +299,7 @@
     .badge {
       display: inline-flex;
       align-items: center;
-      padding: 2px 10px;
+      padding: 5px 15px;
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 600;
@@ -315,28 +315,12 @@
       color: #0f172a;
     }
 
-    .composition-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-      padding-top: 15px;
-    }
-
-    .composition-card {
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 12px 14px;
-      background: #f9fafb;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
     .composition-details {
       border: 1px solid #e2e8f0;
       border-radius: 12px;
       padding: 12px 16px;
       background: #f8fafc;
+      margin-top: 8px;
     }
 
     .composition-details summary {
@@ -350,31 +334,38 @@
       display: none;
     }
 
-    .composition-card h4 {
-      margin: 0;
-      font-size: 0.95rem;
-      color: #0f172a;
-      overflow: hidden;
-    }
-
-    .composition-card small {
-      color: #475467;
-      font-size: 0.8rem;
-    }
-
-    .composition-card strong {
-      font-size: 1rem;
-      color: #1d2939;
-    }
-
-    .morpho-embed {
+    .composition-table {
       width: 100%;
-      min-height: 900px;
-      border: 1px solid #e4e7ec;
-      border-radius: 12px;
-      background: #fff;
-      overflow: auto;
-      padding: 0;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.9rem;
+    }
+
+    .composition-table th,
+    .composition-table td {
+      border: 1px solid #e2e8f0;
+      padding: 8px 10px;
+      text-align: left;
+    }
+
+    .composition-table th {
+      background: #f8fafc;
+      font-weight: 600;
+      color: #475467;
+    }
+
+    .perf-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .risk-list {
+      margin: 0;
+      padding-left: 18px;
+      color: #b42318;
+      line-height: 1.5;
     }
 
     @media (max-width: 640px) {
@@ -428,12 +419,20 @@
               {% if vault.whitelisted %}
               <span class="badge badge-green">Whitelist</span>
               {% else %}
-              <span class="badge badge-gray">Non whitelist</span>
+              <!-- <span class="badge badge-gray">Non whitelist</span> -->
               {% endif %}
             </div>
             <span>{{ vault.asset_symbol or "?" }} - {{ vault.network or "?" }}</span>
             <span style="font-size:0.8rem;word-break:break-all;">{{ vault.address }}</span>
-            <span style="font-size:0.85rem;">TVL ~ {{ vault.display_tvl }}</span>
+            <span style="font-size:0.85rem;">
+              TVL ~ {{ vault.display_tvl }}
+              <small style="color:#94a3b8;">
+                (Δ 30j: {{ vault.tvl_change_30d }} / {{ vault.tvl_pct_30d }})
+              </small>
+            </span>
+            <span style="font-size:0.85rem;color:#475467;">
+              PnL 30j: {{ vault.pnl_30d_label }}
+            </span>
             <a href="{{ url_for(
                     'index',
                     network_id=vault.chain_id,
@@ -534,6 +533,7 @@
       {% endif %}
     </section>
     {% endif %}
+
     {% if current_vault %}
     <section class="panel">
       <h2>Vault actuel</h2>
@@ -558,9 +558,32 @@
             <strong>{{ current_vault.tvl }}</strong>
           </div>
           <div class="info-chip">
-            <span>Asset</span>
-            <strong>{{ current_vault.asset_symbol }} {% if current_vault.asset_name %}- {{ current_vault.asset_name }}{%
-              endif %}</strong>
+            <span>Share price</span>
+            <strong>{{ current_vault.share_price_label }}</strong>
+          </div>
+          <div class="info-chip">
+            <span>Liquidite dispo</span>
+            <strong>{{ current_vault.liquidity_label }}</strong>
+          </div>
+          <div class="info-chip">
+            <span>Cash ratio</span>
+            <strong>
+              {% if current_vault.cash_ratio is not none %}
+              {{ "%.2f"|format(current_vault.cash_ratio * 100) }} %
+              {% else %}
+              N/A
+              {% endif %}
+            </strong>
+          </div>
+          <div class="info-chip">
+            <span>Lending Ratio</span>
+            <strong>
+              {% if current_vault.lent_ratio is not none %}
+              {{ "%.2f"|format(current_vault.lent_ratio * 100) }} %
+              {% else %}
+              N/A
+              {% endif %}
+            </strong>
           </div>
           <div class="info-chip">
             <span>APY brut</span>
@@ -573,31 +596,66 @@
               %}N/A{% endif %}</strong>
           </div>
           <div class="info-chip">
-            <span>Frais</span>
+            <span>Fees</span>
             <strong>{% if current_vault.fee is not none %}{{ "%.2f"|format(current_vault.fee * 100) }} %{% else %}N/A{%
               endif %}</strong>
           </div>
           <div class="info-chip">
-            <span>Share price</span>
-            <strong>{{ current_vault.share_price_label }}</strong>
+            <span>Last maj</span>
+            <strong>{{ current_vault.last_update_label }}</strong>
+          </div>
+          <div class="info-chip">
+            <span>Asset</span>
+            <strong>{{ current_vault.asset_symbol }} {% if current_vault.asset_name %}- {{ current_vault.asset_name }}{%
+              endif %}</strong>
           </div>
         </div>
         {% if vault_composition %}
-        <details class="composition-details">
-          <summary>
-            Composition ({{ vault_composition|length }})
-          </summary>
-          <div class="composition-list">
-            {% for allocation in vault_composition %}
-            <div class="composition-card">
-              <h4>{{ allocation.title }}</h4>
-              <small>{{ allocation.assets }}</small>
-              <strong>{{ allocation.tvl }}</strong>
-              <small>{{ allocation.percent }}</small>
-            </div>
-            {% endfor %}
-          </div>
-        </details>
+        <div>
+          <details class="composition-details">
+            <summary>Composition ({{ vault_composition|length }})</summary>
+            <table class="composition-table">
+              <thead>
+                <tr>
+                  <th>Adresse</th>
+                  <th>Loan</th>
+                  <th>Collateral</th>
+                  <th>Exposition</th>
+                  <th>% du vault</th>
+                  <th>Utilisation</th>
+                  <th>LLTV</th>
+                  <th>Oracle</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for allocation in vault_composition %}
+                <tr>
+                  <td>{{ allocation.title }}</td>
+                  <td>{{ allocation.loan_symbol or "N/A" }}</td>
+                  <td>{{ allocation.collateral_symbol or "N/A" }}</td>
+                  <td>{{ allocation.tvl }}</td>
+                  <td>{{ allocation.percent }}</td>
+                  <td>
+                    {% if allocation.market_utilization is not none %}
+                    {{ "%.1f"|format(allocation.market_utilization * 100) }} %
+                    {% else %}
+                    N/A
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if allocation.market_lltv is not none %}
+                    {{ "%.1f"|format(allocation.market_lltv) }} %
+                    {% else %}
+                    N/A
+                    {% endif %}
+                  </td>
+                  <td>{{ allocation.market_oracle or "N/A" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </details>
+        </div>
         {% else %}
         <p>Aucune allocation referencee pour ce vault.</p>
         {% endif %}
@@ -610,24 +668,65 @@
     </section>
     {% endif %}
 
-  <section class="panel">
-    <h2>Page Morpho</h2>
-    {% if morpho_url %}
-    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;">
-      <p style="margin:0;color:#475467;flex:1 1 auto;">
-        Ouvrir le vault directement sur <code>{{ morpho_url }}</code>
+    {% if performance_summary %}
+    <section class="panel">
+      <h2>Performance & flows for the last {{ tvl_window_summary.days }} days.</h2>
+      <div class="perf-grid">
+        <!-- <div class="info-chip">
+          <span>PnL absolu</span>
+          <strong>{{ performance_summary.pnl_abs_label }}</strong>
+        </div> -->
+        <div class="info-chip">
+          <span>PnL</span>
+          <strong>{{ performance_summary.pnl_pct_label }}</strong>
+        </div>
+        <div class="info-chip">
+          <span>Annualise</span>
+          <strong>{{ performance_summary.annualized_pct_label }}</strong>
+        </div>
+        <div class="info-chip">
+          <span>Drawdown max</span>
+          <strong>{{ performance_summary.drawdown_pct_label }}</strong>
+        </div>
+        <div class="info-chip">
+          <span>Net flows</span>
+          <strong>{{ performance_summary.flow_label }} ≈ {{ tvl_window_summary.pct }}</strong>
+        </div>
+      </div>
+      {% if tvl_window_summary %}
+      <p style="color:#475467;margin:4px 0 0; text-align: right;">
+        {{ tvl_window_summary.start }} -> {{ tvl_window_summary.end }}
       </p>
-      <a class="badge badge-gray" href="{{ morpho_url }}" target="_blank" rel="noopener noreferrer">
-        Ouvrir dans un nouvel onglet
-      </a>
-    </div>
-    {% else %}
-    <p style="color:#475467;">Choisissez un reseau et un vault pour activer le lien Morpho.</p>
+      {% endif %}
+    </section>
     {% endif %}
-    {% if morpho_embed_error %}
-    <p class="error">{{ morpho_embed_error }}</p>
+
+    {% if risk_summary %}
+    <section class="panel">
+      <h2>Alertes risque</h2>
+      <ul class="risk-list">
+        {% for warning in risk_summary %}
+        <li>{{ warning }}</li>
+        {% endfor %}
+      </ul>
+    </section>
     {% endif %}
-  </section>
+
+    <section class="panel">
+      <h2>Page Morpho</h2>
+      {% if morpho_url %}
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;">
+        <p style="margin:0;color:#475467;flex:1 1 auto;">
+          Ouvrir le vault directement sur <code>{{ morpho_url }}</code>
+        </p>
+        <a class="badge badge-gray" href="{{ morpho_url }}" target="_blank" rel="noopener noreferrer">
+          Ouvrir dans un nouvel onglet
+        </a>
+      </div>
+      {% else %}
+      <p style="color:#475467;">Choisissez un reseau et un vault pour activer le lien Morpho.</p>
+      {% endif %}
+    </section>
   </main>
 
   <script>

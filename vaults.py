@@ -129,6 +129,79 @@ def fetch_share_price_usd_series(
     return series
 
 
+def fetch_vault_history_timeseries(
+    vault_address: str,
+    chain_id: int,
+    start_ts: Optional[int] = None,
+    end_ts: Optional[int] = None,
+    interval: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    query = """
+    query VaultHistory(
+      $address: String!,
+      $chainId: Int!,
+      $options: TimeseriesOptions
+    ) {
+      vaultByAddress(address: $address, chainId: $chainId) {
+        historicalState {
+          sharePriceUsd(options: $options) {
+            x
+            y
+          }
+          totalAssetsUsd(options: $options) {
+            x
+            y
+          }
+        }
+      }
+    }
+    """
+
+    options: Dict[str, Any] = {}
+    if start_ts is not None:
+        options["startTimestamp"] = start_ts
+    if end_ts is not None:
+        options["endTimestamp"] = end_ts
+    if interval is not None:
+        options["interval"] = interval
+
+    variables: Dict[str, Any] = {
+        "address": vault_address,
+        "chainId": chain_id,
+        "options": options or None,
+    }
+
+    data = run_graphql_query(query, variables)
+    vault_data = data.get("vaultByAddress")
+    if vault_data is None:
+        raise ValueError("Vault not found for given address / chainId.")
+
+    historical = (vault_data.get("historicalState") or {}) if vault_data else {}
+
+    def merge_series(
+        source: List[Dict[str, Any]], key: str
+    ) -> Dict[int, Dict[str, Any]]:
+        merged: Dict[int, Dict[str, Any]] = {}
+        for point in source:
+            ts = int(point["x"])
+            value = point["y"]
+            merged.setdefault(ts, {})
+            merged[ts][key] = float(value) if value is not None else None
+        return merged
+
+    share = merge_series(historical.get("sharePriceUsd") or [], "share_price")
+    assets = merge_series(historical.get("totalAssetsUsd") or [], "total_assets_usd")
+
+    timestamps = set(share.keys()) | set(assets.keys())
+    points: List[Dict[str, Any]] = []
+    for ts in sorted(timestamps):
+        combined: Dict[str, Any] = {"timestamp": ts}
+        combined.update(share.get(ts, {}))
+        combined.update(assets.get(ts, {}))
+        points.append(combined)
+    return points
+
+
 def pick_start_end_points(
     series: List[Tuple[int, float]],
     start_ts: int,
@@ -253,8 +326,10 @@ def looks_like_address(value: str) -> bool:
     if not value:
         return False
     value = value.lower()
-    return value.startswith("0x") and len(value) == 42 and all(
-        c in "0123456789abcdef" for c in value[2:]
+    return (
+        value.startswith("0x")
+        and len(value) == 42
+        and all(c in "0123456789abcdef" for c in value[2:])
     )
 
 
@@ -373,12 +448,17 @@ def fetch_vault_details(
           name
           decimals
         }
+        liquidity {
+          usd
+          underlying
+        }
         chain {
           id
         }
         state {
           totalAssetsUsd
           totalAssets
+          totalSupply
           apy
           netApy
           netApyWithoutRewards
@@ -388,6 +468,7 @@ def fetch_vault_details(
           feeRecipient
           guardian
           owner
+          timestamp
           allocation {
             supplyAssetsUsd
             supplyCapUsd
@@ -399,6 +480,14 @@ def fetch_vault_details(
               }
               collateralAsset {
                 symbol
+              }
+              oracle {
+                type
+              }
+              lltv
+              state {
+                utilization
+                liquidityAssetsUsd
               }
             }
           }
