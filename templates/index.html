@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="fr">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vault share price explorer</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"
+    crossorigin="anonymous"></script>
+  <style>
+    :root {
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #0f172a;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f4f5f7;
+    }
+
+    main {
+      max-width: 1444px;
+      margin: 0 auto;
+      padding: 32px 16px 64px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .panel {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    h1,
+    h2 {
+      margin: 0 0 16px;
+      font-weight: 600;
+    }
+
+    form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      align-items: end;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 0.9rem;
+      color: #475467;
+    }
+
+    select,
+    input[type="text"],
+    input[type="date"] {
+      border-radius: 10px;
+      border: 1px solid #d0d5dd;
+      background: #ffffff;
+      color: #0f172a;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+
+    button[type="submit"],
+    .range-buttons button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: #2563eb;
+      color: #fff;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+    }
+
+    .range-buttons button {
+      background: #e4ecff;
+      color: #1d4ed8;
+    }
+
+    button[type="submit"]:hover,
+    .range-buttons button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.25);
+    }
+
+    .range-buttons {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .range-buttons span {
+      font-size: 0.8rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: #9198a1;
+    }
+
+    .error {
+      margin-top: 16px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      background: #feecef;
+      color: #b42318;
+      border: 1px solid #fda29b;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      height: 320px;
+      margin-top: 16px;
+    }
+
+    .chart-summary {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+    }
+
+    .summary-card {
+      border-radius: 14px;
+      padding: 14px 16px;
+      background: #f7f9ff;
+      border: 1px solid #dfe5fb;
+    }
+
+    .summary-card h3 {
+      margin: 0;
+      font-size: 0.85rem;
+      color: #667085;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .summary-card strong {
+      display: block;
+      font-size: 1.2rem;
+      margin-top: 8px;
+      color: #1d2939;
+    }
+
+    .summary-card small {
+      display: block;
+      margin-top: 4px;
+      color: #98a2b3;
+    }
+
+    .curator-panel {
+      padding: 0;
+    }
+
+    .curator-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px 0;
+    }
+
+    .curator-head h2 {
+      margin: 0;
+    }
+
+    .curator-toggle {
+      border: 1px solid #d0d5dd;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #0f172a;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .curator-content {
+      padding: 0 24px 24px;
+    }
+
+    .curator-panel[data-collapsed="true"] .curator-content {
+      display: none;
+    }
+
+    .curator-panel[data-collapsed="true"] {
+      padding-bottom: 16px;
+    }
+
+    .curator-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 25px;
+      padding-top: 20px;
+    }
+
+    .curator-form input[type="text"] {
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .curator-form button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+      background: #0f172a;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .curator-results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .curator-card {
+      border: 1px solid #e4e7ec;
+      border-radius: 12px;
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background: #f9fafb;
+    }
+
+    .curator-card h3 {
+      margin: 0;
+      font-size: 1rem;
+      color: #111827;
+    }
+
+    .curator-card span {
+      font-size: 0.85rem;
+      color: #475467;
+    }
+
+    .curator-card a {
+      margin-top: 8px;
+      align-self: flex-start;
+      text-decoration: none;
+      color: #2563eb;
+      font-weight: 600;
+    }
+
+    iframe {
+      width: 100%;
+      min-height: 900px;
+      border: 1px solid #e4e7ec;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .vault-info {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .vault-info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .info-chip {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .info-chip span {
+      display: block;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #94a3b8;
+    }
+
+    .info-chip strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 1.05rem;
+      color: #0f172a;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .badge-green {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .badge-gray {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
+    .composition-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      padding-top: 15px;
+    }
+
+    .composition-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: #f9fafb;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .composition-details {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      background: #f8fafc;
+    }
+
+    .composition-details summary {
+      cursor: pointer;
+      font-weight: 600;
+      color: #0f172a;
+      list-style: none;
+    }
+
+    .composition-details summary::marker {
+      display: none;
+    }
+
+    .composition-card h4 {
+      margin: 0;
+      font-size: 0.95rem;
+      color: #0f172a;
+      overflow: hidden;
+    }
+
+    .composition-card small {
+      color: #475467;
+      font-size: 0.8rem;
+    }
+
+    .composition-card strong {
+      font-size: 1rem;
+      color: #1d2939;
+    }
+
+    .morpho-embed {
+      width: 100%;
+      min-height: 900px;
+      border: 1px solid #e4e7ec;
+      border-radius: 12px;
+      background: #fff;
+      overflow: auto;
+      padding: 0;
+    }
+
+    @media (max-width: 640px) {
+      form {
+        grid-template-columns: 1fr;
+      }
+
+      .curator-form {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <section class="panel curator-panel" id="curator-panel" data-collapsed="{{ 'false' if curator_open else 'true' }}">
+      <div class="curator-head">
+        <h2>Curator</h2>
+        <button type="button" class="curator-toggle" id="curator-toggle">
+          {{ "Replier" if curator_open else "Deplier" }}
+        </button>
+      </div>
+      <div class="curator-content">
+        <form class="curator-form" method="get">
+          <input type="text" name="curator" placeholder="curator (slug ou address 0x...)" value="{{ curator_query }}" />
+          <input type="hidden" name="network_id" value="{{ selected_network_id or '' }}" />
+          <input type="hidden" name="vault_address" value="{{ vault_address }}" />
+          <input type="hidden" name="start_date" value="{{ start_date }}" />
+          <input type="hidden" name="end_date" value="{{ end_date }}" />
+          <input type="hidden" name="full_history" value="{{ 1 if full_history else 0 }}" />
+          <input type="hidden" name="curator_open" class="curator-open-input" value="{{ 1 if curator_open else 0 }}" />
+          <button type="submit">Lister les vaults</button>
+        </form>
+        {% if curator_error %}
+        <p class="error">{{ curator_error }}</p>
+        {% endif %}
+        {% if curator_info %}
+        <p style="margin-top:-8px;color:#475467;">
+          Curator: <strong>{{ curator_info.name }}</strong>
+          {% if curator_info.description %}- {{ curator_info.description }}{% endif %}
+        </p>
+        {% endif %}
+        {% if curator_vaults %}
+        <div class="curator-results">
+          {% for vault in curator_vaults %}
+          <div class="curator-card">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">
+              <h3 style="margin:0;">{{ vault.name }}</h3>
+              {% if vault.whitelisted %}
+              <span class="badge badge-green">Whitelist</span>
+              {% else %}
+              <span class="badge badge-gray">Non whitelist</span>
+              {% endif %}
+            </div>
+            <span>{{ vault.asset_symbol or "?" }} - {{ vault.network or "?" }}</span>
+            <span style="font-size:0.8rem;word-break:break-all;">{{ vault.address }}</span>
+            <span style="font-size:0.85rem;">TVL ~ {{ vault.display_tvl }}</span>
+            <a href="{{ url_for(
+                    'index',
+                    network_id=vault.chain_id,
+                    vault_address=vault.address,
+                        start_date=start_date,
+                        end_date=end_date,
+                        full_history=1 if full_history else 0,
+                        curator=curator_query,
+                        curator_open=0
+                      ) }}">
+              Ouvrir ce vault
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% elif curator_info %}
+        <p>Aucun vault reference pour ce curator.</p>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <h1>Share Price History explorer</h1>
+      <form id="controls-form" method="get">
+        <input type="hidden" name="full_history" id="full-history-input" value="{{ 1 if full_history else 0 }}" />
+        <input type="hidden" name="curator" value="{{ curator_query }}" />
+        <input type="hidden" name="curator_open" class="curator-open-input" value="{{ 1 if curator_open else 0 }}" />
+        <label>
+          Reseau
+          <select name="network_id" required>
+            <option value="" disabled {% if not selected_network_id %}selected{% endif %}>Selectionner...</option>
+            {% for net in networks %}
+            <option value="{{ net.id }}" {% if selected_network_id==net.id %}selected{% endif %}>
+              {{ net.network }} (chainId {{ net.id }})
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+
+        <label>
+          Adresse du vault
+          <input type="text" name="vault_address" value="{{ vault_address }}" placeholder="0x..." autocomplete="off"
+            required />
+        </label>
+
+        <label>
+          Date de debut
+          <input type="date" name="start_date" value="{{ start_date }}" required />
+        </label>
+
+        <label>
+          Date de fin
+          <input type="date" name="end_date" value="{{ end_date }}" required />
+        </label>
+
+        <button type="submit">Afficher</button>
+
+        <div class="range-buttons">
+          <span>Raccourcis</span>
+          <button type="button" data-range-days="7">7 j</button>
+          <button type="button" data-range-days="30">30 j</button>
+          <button type="button" data-range-days="90">90 j</button>
+          <button type="button" data-range-days="180">180 j</button>
+          <button type="button" data-range-days="365">1 an</button>
+          <button type="button" data-range-all="true">Tout</button>
+        </div>
+      </form>
+
+      {% if error %}
+      <p class="error">{{ error }}</p>
+      {% endif %}
+    </section>
+
+    {% if chart_points %}
+    <section class="panel">
+      <h2>Evolution du share price (USD)</h2>
+      <div class="chart-wrapper">
+        <canvas id="sharePriceChart"></canvas>
+      </div>
+      {% if summary %}
+      <div class="chart-summary">
+        <div class="summary-card">
+          <h3>{% if summary.is_full_history %}Premiere valeur{% else %}Depart{% endif %}</h3>
+          <strong>{{ "%.6f"|format(summary.start_price) }} $</strong>
+          <small>{{ summary.start_label }}</small>
+        </div>
+        <div class="summary-card">
+          <h3>{% if summary.is_full_history %}Derniere valeur{% else %}Arrivee{% endif %}</h3>
+          <strong>{{ "%.6f"|format(summary.end_price) }} $</strong>
+          <small>{{ summary.end_label }}</small>
+        </div>
+        <div class="summary-card">
+          <h3>PnL</h3>
+          <strong>{{ "%.4f"|format(summary.pnl_decimal * 100) }} %</strong>
+          <small>net de fees</small>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+    {% if current_vault %}
+    <section class="panel">
+      <h2>Vault actuel</h2>
+      <div class="vault-info">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
+          <h3 style="margin:0;">{{ current_vault.name }} ({{ current_vault.symbol }})</h3>
+          {% if current_vault.whitelisted %}
+          <span class="badge badge-green">Whitelist</span>
+          {% endif %}
+          <!-- {% if current_vault.promoted %}
+          <span class="badge badge-gray">Promu</span>
+          {% endif %} -->
+        </div>
+        {% if current_vault.description %}
+        <p style="color:#475467;margin:0;">
+          {{ current_vault.description }}
+        </p>
+        {% endif %}
+        <div class="vault-info-grid">
+          <div class="info-chip">
+            <span>TVL</span>
+            <strong>{{ current_vault.tvl }}</strong>
+          </div>
+          <div class="info-chip">
+            <span>Asset</span>
+            <strong>{{ current_vault.asset_symbol }} {% if current_vault.asset_name %}- {{ current_vault.asset_name }}{%
+              endif %}</strong>
+          </div>
+          <div class="info-chip">
+            <span>APY brut</span>
+            <strong>{% if current_vault.apy is not none %}{{ "%.2f"|format(current_vault.apy * 100) }} %{% else %}N/A{%
+              endif %}</strong>
+          </div>
+          <div class="info-chip">
+            <span>Net APY</span>
+            <strong>{% if current_vault.net_apy is not none %}{{ "%.2f"|format(current_vault.net_apy * 100) }} %{% else
+              %}N/A{% endif %}</strong>
+          </div>
+          <div class="info-chip">
+            <span>Frais</span>
+            <strong>{% if current_vault.fee is not none %}{{ "%.2f"|format(current_vault.fee * 100) }} %{% else %}N/A{%
+              endif %}</strong>
+          </div>
+          <div class="info-chip">
+            <span>Share price</span>
+            <strong>{{ current_vault.share_price_label }}</strong>
+          </div>
+        </div>
+        {% if vault_composition %}
+        <details class="composition-details">
+          <summary>
+            Composition ({{ vault_composition|length }})
+          </summary>
+          <div class="composition-list">
+            {% for allocation in vault_composition %}
+            <div class="composition-card">
+              <h4>{{ allocation.title }}</h4>
+              <small>{{ allocation.assets }}</small>
+              <strong>{{ allocation.tvl }}</strong>
+              <small>{{ allocation.percent }}</small>
+            </div>
+            {% endfor %}
+          </div>
+        </details>
+        {% else %}
+        <p>Aucune allocation referencee pour ce vault.</p>
+        {% endif %}
+      </div>
+    </section>
+    {% elif current_vault_error %}
+    <section class="panel">
+      <h2>Vault actuel</h2>
+      <p class="error">{{ current_vault_error }}</p>
+    </section>
+    {% endif %}
+
+  <section class="panel">
+    <h2>Page Morpho</h2>
+    {% if morpho_url %}
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;">
+      <p style="margin:0;color:#475467;flex:1 1 auto;">
+        Ouvrir le vault directement sur <code>{{ morpho_url }}</code>
+      </p>
+      <a class="badge badge-gray" href="{{ morpho_url }}" target="_blank" rel="noopener noreferrer">
+        Ouvrir dans un nouvel onglet
+      </a>
+    </div>
+    {% else %}
+    <p style="color:#475467;">Choisissez un reseau et un vault pour activer le lien Morpho.</p>
+    {% endif %}
+    {% if morpho_embed_error %}
+    <p class="error">{{ morpho_embed_error }}</p>
+    {% endif %}
+  </section>
+  </main>
+
+  <script>
+    const chartPoints = {{ chart_points | tojson }};
+    if (chartPoints.length) {
+      const ctx = document.getElementById("sharePriceChart").getContext("2d");
+      const sharePriceChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          datasets: [
+            {
+              label: "sharePriceUsd",
+              data: chartPoints.map((point) => ({
+                x: point.timestamp,
+                y: point.value,
+              })),
+              borderColor: "#2563eb",
+              borderWidth: 2,
+              backgroundColor: "rgba(37,99,235,0.18)",
+              pointRadius: 0,
+              fill: true,
+              tension: 0.2,
+            },
+          ],
+        },
+        options: {
+          parsing: false,
+          maintainAspectRatio: false,
+          interaction: { mode: "index", intersect: false },
+          scales: {
+            x: {
+              type: "time",
+              time: {
+                tooltipFormat: "yyyy-MM-dd HH:mm",
+              },
+              ticks: { color: "#475467" },
+              grid: { color: "#e4e7ec" },
+            },
+            y: {
+              beginAtZero: false,
+              ticks: {
+                color: "#475467",
+                callback: (value) => `${Number(value).toFixed(4)} $`,
+              },
+              grid: { color: "#e4e7ec" },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => ` ${context.parsed.y.toFixed(6)} $`,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    const form = document.getElementById("controls-form");
+    const startInput = form ? form.querySelector("input[name='start_date']") : null;
+    const endInput = form ? form.querySelector("input[name='end_date']") : null;
+    const rangeButtons = form ? form.querySelectorAll("[data-range-days]") : [];
+    const fullHistoryInput = document.getElementById("full-history-input");
+    const allHistoryButton = form ? form.querySelector("[data-range-all='true']") : null;
+    const curatorPanel = document.getElementById("curator-panel");
+    const curatorToggle = document.getElementById("curator-toggle");
+    const curatorStateInputs = document.querySelectorAll(".curator-open-input");
+
+    const formatDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+
+    rangeButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        if (!form || !startInput || !endInput) return;
+        const days = Number(button.dataset.rangeDays);
+        const endDate = endInput.value ? new Date(endInput.value) : new Date();
+        const startDate = new Date(endDate);
+        startDate.setDate(endDate.getDate() - days);
+
+        endInput.value = formatDate(endDate);
+        startInput.value = formatDate(startDate);
+        if (fullHistoryInput) {
+          fullHistoryInput.value = "0";
+        }
+        form.requestSubmit();
+      });
+    });
+
+    if (allHistoryButton) {
+      allHistoryButton.addEventListener("click", () => {
+        if (!form) return;
+        if (fullHistoryInput) {
+          fullHistoryInput.value = "1";
+        }
+        form.requestSubmit();
+      });
+    }
+
+    if (curatorPanel && curatorToggle) {
+      let curatorOpenState = curatorPanel.dataset.collapsed !== "true";
+      const setCuratorState = (open) => {
+        curatorOpenState = open;
+        curatorPanel.dataset.collapsed = open ? "false" : "true";
+        curatorToggle.textContent = open ? "Replier" : "Deplier";
+        curatorStateInputs.forEach((input) => {
+          input.value = open ? "1" : "0";
+        });
+      };
+
+      setCuratorState(curatorOpenState);
+
+      curatorToggle.addEventListener("click", () => {
+        setCuratorState(!curatorOpenState);
+      });
+    }
+  </script>
+</body>
+
+</html>
