@@ -299,7 +299,7 @@
     .badge {
       display: inline-flex;
       align-items: center;
-      padding: 5px 15px;
+      padding: 8px 20px;
       border-radius: 999px;
       font-size: 0.75rem;
       font-weight: 600;
@@ -431,7 +431,7 @@
               </small>
             </span>
             <span style="font-size:0.85rem;color:#475467;">
-              PnL 30j: {{ vault.pnl_30d_label }}
+              PnL 30j: {{ vault.pnl_30d_label }} ({{ vault.pnl_abs_label }})
             </span>
             <a href="{{ url_for(
                     'index',
@@ -455,7 +455,7 @@
     </section>
 
     <section class="panel">
-      <h1>Share Price History explorer</h1>
+      <h1>History explorer</h1>
       <form id="controls-form" method="get">
         <input type="hidden" name="full_history" id="full-history-input" value="{{ 1 if full_history else 0 }}" />
         <input type="hidden" name="curator" value="{{ curator_query }}" />
@@ -506,37 +506,17 @@
       {% endif %}
     </section>
 
-    {% if chart_points %}
-    <section class="panel">
-      <h2>Evolution du share price (USD)</h2>
-      <div class="chart-wrapper">
-        <canvas id="sharePriceChart"></canvas>
-      </div>
-      {% if summary %}
-      <div class="chart-summary">
-        <div class="summary-card">
-          <h3>{% if summary.is_full_history %}Premiere valeur{% else %}Depart{% endif %}</h3>
-          <strong>{{ "%.6f"|format(summary.start_price) }} $</strong>
-          <small>{{ summary.start_label }}</small>
-        </div>
-        <div class="summary-card">
-          <h3>{% if summary.is_full_history %}Derniere valeur{% else %}Arrivee{% endif %}</h3>
-          <strong>{{ "%.6f"|format(summary.end_price) }} $</strong>
-          <small>{{ summary.end_label }}</small>
-        </div>
-        <div class="summary-card">
-          <h3>PnL</h3>
-          <strong>{{ "%.4f"|format(summary.pnl_decimal * 100) }} %</strong>
-          <small>net de fees</small>
-        </div>
-      </div>
-      {% endif %}
-    </section>
-    {% endif %}
-
     {% if current_vault %}
     <section class="panel">
-      <h2>Vault actuel</h2>
+      {% if morpho_url %}
+      <div
+        style="display:flex;flex-wrap:inherit;gap:12px;align-items:center;margin-bottom:12px; justify-content: space-between;">
+        <h2>Vault actuel</h2>
+        <a class="badge badge-gray" href="{{ morpho_url }}" target="_blank" rel="noopener noreferrer">
+          Ouvrir le vault sur Morpho
+        </a>
+      </div>
+      {% endif %}
       <div class="vault-info">
         <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;">
           <h3 style="margin:0;">{{ current_vault.name }} ({{ current_vault.symbol }})</h3>
@@ -610,6 +590,39 @@
               endif %}</strong>
           </div>
         </div>
+
+        {% if performance_summary %}
+        <section class="panel">
+          <h2>Performance & flows for the last {{ tvl_window_summary.days }} days.</h2>
+          <div class="perf-grid">
+            <div class="info-chip">
+              <span>Absolute PnL</span>
+              <strong>{{ performance_summary.pnl_abs_label }}</strong>
+            </div>
+            <div class="info-chip">
+              <span>PnL</span>
+              <strong>{{ performance_summary.pnl_pct_label }}</strong>
+            </div>
+            <div class="info-chip">
+              <span>annualized</span>
+              <strong>{{ performance_summary.annualized_pct_label }}</strong>
+            </div>
+            <div class="info-chip">
+              <span>Drawdown max</span>
+              <strong>{{ performance_summary.drawdown_pct_label }}</strong>
+            </div>
+            <div class="info-chip">
+              <span>Net flows</span>
+              <strong>{{ performance_summary.flow_label }} ≈ {{ tvl_window_summary.pct }}</strong>
+            </div>
+          </div>
+          {% if tvl_window_summary %}
+          <p style="color:#475467;margin:4px 0 0; text-align: right;">
+            {{ tvl_window_summary.start }} -> {{ tvl_window_summary.end }}
+          </p>
+          {% endif %}
+        </section>
+        {% endif %}
         {% if vault_composition %}
         <div>
           <details class="composition-details">
@@ -668,35 +681,30 @@
     </section>
     {% endif %}
 
-    {% if performance_summary %}
+    {% if chart_points %}
     <section class="panel">
-      <h2>Performance & flows for the last {{ tvl_window_summary.days }} days.</h2>
-      <div class="perf-grid">
-        <div class="info-chip">
-          <span>Absolute PnL</span>
-          <strong>{{ performance_summary.pnl_abs_label }}</strong>
+      <h2>Evolution du share price (USD)</h2>
+      <div class="chart-wrapper">
+        <canvas id="sharePriceChart"></canvas>
+      </div>
+      {% if summary %}
+      <div class="chart-summary">
+        <div class="summary-card">
+          <h3>{% if summary.is_full_history %}Premiere valeur{% else %}Depart{% endif %}</h3>
+          <strong>{{ "%.6f"|format(summary.start_price) }} $</strong>
+          <small>{{ summary.start_label }}</small>
         </div>
-        <div class="info-chip">
-          <span>PnL</span>
-          <strong>{{ performance_summary.pnl_pct_label }}</strong>
+        <div class="summary-card">
+          <h3>{% if summary.is_full_history %}Derniere valeur{% else %}Arrivee{% endif %}</h3>
+          <strong>{{ "%.6f"|format(summary.end_price) }} $</strong>
+          <small>{{ summary.end_label }}</small>
         </div>
-        <div class="info-chip">
-          <span>annualized</span>
-          <strong>{{ performance_summary.annualized_pct_label }}</strong>
-        </div>
-        <div class="info-chip">
-          <span>Drawdown max</span>
-          <strong>{{ performance_summary.drawdown_pct_label }}</strong>
-        </div>
-        <div class="info-chip">
-          <span>Net flows</span>
-          <strong>{{ performance_summary.flow_label }} ≈ {{ tvl_window_summary.pct }}</strong>
+        <div class="summary-card">
+          <h3>PnL</h3>
+          <strong>{{ "%.4f"|format(summary.pnl_decimal * 100) }} %</strong>
+          <small>net de fees</small>
         </div>
       </div>
-      {% if tvl_window_summary %}
-      <p style="color:#475467;margin:4px 0 0; text-align: right;">
-        {{ tvl_window_summary.start }} -> {{ tvl_window_summary.end }}
-      </p>
       {% endif %}
     </section>
     {% endif %}
@@ -712,7 +720,7 @@
     </section>
     {% endif %}
 
-    <section class="panel">
+    <!-- <section class="panel">
       <h2>Page Morpho</h2>
       {% if morpho_url %}
       <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:12px;">
@@ -726,7 +734,7 @@
       {% else %}
       <p style="color:#475467;">Choisissez un reseau et un vault pour activer le lien Morpho.</p>
       {% endif %}
-    </section>
+    </section> -->
   </main>
 
   <script>

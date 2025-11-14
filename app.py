@@ -25,9 +25,7 @@ app = Flask(__name__)
 DEFAULT_RANGE_DAYS = 30
 CURATOR_VAULT_WINDOW_DAYS = 30
 CURATOR_VAULT_CACHE_TTL = 1800  # 30 minutes
-CURATOR_VAULT_CACHE: Dict[
-    Tuple[str, int, int, int], Dict[str, Any]
-] = {}
+CURATOR_VAULT_CACHE: Dict[Tuple[str, int, int, int], Dict[str, Any]] = {}
 
 
 def _format_usd_short(value: Optional[float]) -> str:
@@ -271,7 +269,9 @@ def _get_curator_vault_metrics_cached(
     pnl_label = "N/A"
     tvl_change_label = "N/A"
     tvl_pct_label = "N/A"
+    metrics = None
     try:
+        metrics = None
         history_points = fetch_vault_history_timeseries(
             vault_address=address,
             chain_id=chain_id,
@@ -291,10 +291,13 @@ def _get_curator_vault_metrics_cached(
     except Exception:
         pass
 
+    pnl_abs = metrics.get("pnl_abs") if metrics else None
     data = {
         "pnl_30d_label": pnl_label,
+        "pnl_abs_label": _format_usd_short(pnl_abs),
         "tvl_change_30d": tvl_change_label,
         "tvl_pct_30d": tvl_pct_label,
+        "pnl_abs_raw": pnl_abs,
     }
     CURATOR_VAULT_CACHE[key] = {"timestamp": now, "data": data}
     return data
@@ -554,7 +557,7 @@ def index():
                         }
                     )
                 curator_vaults.sort(
-                    key=lambda vault: vault.get("total_assets_usd") or 0.0,
+                    key=lambda vault: abs(vault.get("pnl_abs_raw") or 0.0),
                     reverse=True,
                 )
         except Exception as exc:  # pragma: no cover
@@ -590,6 +593,7 @@ def index():
         performance_summary=performance_summary,
         risk_summary=False,
         tvl_window_summary=tvl_window_summary,
+        curator_window_days=CURATOR_VAULT_WINDOW_DAYS,
     )
 
 
